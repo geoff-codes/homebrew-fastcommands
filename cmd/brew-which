@@ -1,0 +1,43 @@
+#!/bin/sh # "brew which" -- derefernce paths for homebrew symlinks.
+          # "brew exec" -- exec these instead of printing/returning.
+
+# G. Nixon 2014. Public domain or license of your choice; no warranty, etc.
+
+. "$BREW_LIBRARY_DIRECTORY/Homebrew/cmd/shellutils" 2>/dev/null || :
+
+iam=$(basename "$0" | sed 's|^brew-||')
+
+bin=$HOMEBREW_PREFIX/bin
+optbin=$HOMEBREW_PREFIX/opt/bin
+
+## Option parse.
+for what; do case $1 in
+  -o | --opt*) OPT=1 && shift ;;
+  -s | --silent) SILENT=1 && shift ;;
+  # To do: find unlinked bins. Implement as... '-a'? (Changes the meaning...)
+  -a | --all)   die "brew $iam: -a flag is yet unimplemented." ;;
+  -h | --help) ohai "Like $iam, but for paths in Cellar." && exit 0 ;;
+  '*') continue ;;
+esac; done
+
+## Work through a shell glob or multiple named arguments.
+
+for what; do
+
+  what="$(basename "$what")"
+  which="$(which "$what")"
+  binwhich="$bin/$what"
+  optbinwhich="$optbin/$what"
+
+  [ -x "$which" ]  && [ -x "$binwhich" ] && # Executable in path and prefix.
+  [   -"$which"-    =    -"$binwhich"- ] || exit 1 # ...and they're the same.
+
+  cellarwhich="$(readlink -f "$which")"
+  whichwhat=$cellarwhich
+
+  [ -$OPT-     =  -1- ] && whichwhat=$optbinwhich     # Override for -o flag.
+  [ -x "$cellarwhich" ] || exit 1                     # Double check.
+
+  [ "$iam" = "exec" ] && exec $whichwhat ||
+    [ -$SILENT-  =  -1- ] || ohai "$whichwhat"
+done
